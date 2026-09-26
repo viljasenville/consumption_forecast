@@ -7,7 +7,10 @@ The three series are handled with different rules:
     meter resets / anomalies are filtered out.
   - outdoor temperature (instantaneous): mean of samples falling within the
     hour, forward-filled when needed.
-  - target (stepwise): last known value, forward-filled.
+  - target, the heating-degree reference (indoor temperature or thermostat
+    setpoint): a measured indoor sensor is instantaneous and is averaged within
+    the hour like the outdoor temperature; a thermostat setpoint is stepwise and
+    takes the last known value. Both are forward-filled over gaps.
 """
 from __future__ import annotations
 
@@ -118,6 +121,7 @@ def assemble_grid(
     max_hourly_kwh: float,
     production_raw=None,
     export_raw=None,
+    target_instantaneous=False,
 ):
     """Assemble a unified hourly grid.
 
@@ -127,6 +131,10 @@ def assemble_grid(
     ``total_energy`` is real house consumption = grid + production - export.
     When production/export are not supplied, ``total_energy`` equals ``energy``.
     Timestamps (ts) are in local, timezone-aware time.
+
+    ``target_instantaneous`` selects how ``target_raw`` is sampled: False for a
+    stepwise thermostat setpoint (last known value), True for a measured indoor
+    temperature sensor (mean within the hour, as for the outdoor temperature).
     """
     if not energy_raw or not outdoor_raw:
         return []
@@ -159,10 +167,20 @@ def assemble_grid(
     # --- OUTDOOR TEMPERATURE: instantaneous -> representative hourly value ---
     outdoor_at = _sample_mean_in_hour(outdoor_raw, hours, forward_fill=True)
 
-    # --- TARGET: stepwise -> forward-fill ---
+    # --- TARGET (heating-degree reference) -> forward-fill ---
     if target_raw:
-        target_at = _sample_last_known(target_raw, hours)
-        _forward_fill_inplace(target_at, hours, fallback=base_temp)
+        if target_instantaneous:
+            # measured indoor temperature: same sampling rule as outdoor
+            target_at = _sample_mean_in_hour(target_raw, hours, forward_fill=True)
+        else:
+            target_at = _sample_last_known(target_raw, hours)
+        # Hours BEFORE the first reading (an indoor sensor added later than the
+        # energy meter) are back-filled with that first reading rather than with
+        # base_temp: the whole training history must sit on ONE reference scale,
+        # and a configured threshold mixed into a house the sensor shows sitting
+        # somewhere else would distort the fitted slope far more than the unknown
+        # early hours themselves do.
+        _forward_fill_inplace(target_at, hours, fallback=float(target_raw[0][1]))
     else:
         target_at = {h: base_temp for h in hours}
 

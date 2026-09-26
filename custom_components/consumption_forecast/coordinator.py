@@ -41,6 +41,7 @@ from .const import (
     CONF_EXPORT,
     CONF_FORECAST,
     CONF_HISTORY_DAYS,
+    CONF_INDOOR,
     CONF_MAX_HOURLY_KWH,
     CONF_MODEL,
     CONF_OUTDOOR,
@@ -56,6 +57,7 @@ from .const import (
     DEFAULT_TIMEZONE,
     DOMAIN,
     FORECAST_RETRY_MINUTES,
+    INDOOR_REF_DAYS,
     LAG_TAIL_HOURS,
     MIN_TRAIN_HOURS,
     MODEL_PROFILE,
@@ -122,6 +124,11 @@ class ForecastCoordinator(DataUpdateCoordinator):
         self.tz = ZoneInfo(self.cfg.get(CONF_TIMEZONE, DEFAULT_TIMEZONE))
         self.base = float(self.cfg.get(CONF_BASE_TEMP, DEFAULT_BASE_TEMP))
         self.max_kwh = float(self.cfg.get(CONF_MAX_HOURLY_KWH, DEFAULT_MAX_HOURLY_KWH))
+        # Mean of the last INDOOR_REF_DAYS days of the indoor sensor, refreshed
+        # every forecast run. The heating-degree reference used for FUTURE hours
+        # when an indoor sensor is configured (see _current_target); None until
+        # the first successful read, and always None without an indoor sensor.
+        self._indoor_ref: float | None = None
         # Production/export are optional inputs used only to reconstruct the true
         # total consumption from history (grid + production - export). The
         # integration forecasts that single total consumption; it does not
@@ -340,6 +347,8 @@ class ForecastCoordinator(DataUpdateCoordinator):
         if self.selected_model != MODEL_PROFILE:
             await self._async_resolve_addon()
 
+        await self._async_refresh_indoor_ref()
+
         # None (or unset) -> fetch all available history; a number narrows it.
         history_days = self.cfg.get(CONF_HISTORY_DAYS, DEFAULT_HISTORY_DAYS)
         series = await self._build_hourly_series(history_days)
@@ -382,6 +391,9 @@ class ForecastCoordinator(DataUpdateCoordinator):
             "training_end": last_ts.isoformat(),
             "training_span_days": round(span_hours / 24.0, 1),
             "training_hours": len(series),
+            # which heating-degree reference the model learned from -- the first
+            # thing to check when a forecast is systematically too high or low
+            "hdd_reference": self._hdd_reference_source(),
         }
 
         _LOGGER.info(
@@ -489,9 +501,20 @@ class ForecastCoordinator(DataUpdateCoordinator):
         outdoor_raw = await fetch_series(
             self.hass, self.cfg[CONF_OUTDOOR], days, cumulative=False
         )
+        # The heating-degree reference. Preference order:
+        #   1. indoor temperature sensor  2. thermostat target  3. heating threshold
         target_raw = None
+        target_instantaneous = False
+        indoor = self.cfg.get(CONF_INDOOR)
         thermostat = self.cfg.get(CONF_THERMOSTAT)
-        if thermostat:
+        if indoor:
+            # A temperature SENSOR has long-term statistics, so its real
+            # per-hour history covers the whole training window -- no need for
+            # the thermostat approximation below, and a seasonal change of the
+            # setpoint is already recorded in the history itself.
+            target_raw = await fetch_series(self.hass, indoor, days, cumulative=False)
+            target_instantaneous = True
+        elif thermostat:
             # A thermostat's target is an ATTRIBUTE, so its history reaches only
             # the recorder's raw window (~10 days) -- it is not in long-term
             # statistics. Training on a year of data would then fall back to the
@@ -521,6 +544,7 @@ class ForecastCoordinator(DataUpdateCoordinator):
         if len(energy_raw) < 48 or len(outdoor_raw) < 48:
             return []
 
+        # positional args only: async_add_executor_job takes no keywords
         return await self.hass.async_add_executor_job(
             assemble_grid,
             energy_raw,
@@ -531,6 +555,7 @@ class ForecastCoordinator(DataUpdateCoordinator):
             self.max_kwh,
             production_raw,
             export_raw,
+            target_instantaneous,
         )
 
     async def _recent_tail(self, hours: int = LAG_TAIL_HOURS):
@@ -575,6 +600,10 @@ class ForecastCoordinator(DataUpdateCoordinator):
         weather_hours = await self._get_weather_forecast()
         if not weather_hours:
             return self._retry_soon()
+
+        # Refresh the indoor reference before any target is read, so training
+        # and prediction use the same heating-degree reference.
+        await self._async_refresh_indoor_ref()
 
         future = self._build_future(weather_hours)
         if not future:
@@ -1085,7 +1114,55 @@ class ForecastCoordinator(DataUpdateCoordinator):
             future.append({"ts": ts, "out_temp": temp, "target": target})
         return future
 
+    def _hdd_reference_source(self) -> str:
+        """Which input supplies the heating-degree reference (for diagnostics)."""
+        if self.cfg.get(CONF_INDOOR):
+            return "indoor_sensor"
+        if self.cfg.get(CONF_THERMOSTAT):
+            return "thermostat_target"
+        return "heating_threshold"
+
+    async def _async_refresh_indoor_ref(self):
+        """Update the forecast-time indoor reference from recent history.
+
+        Future indoor temperature is unknown, so forecast hours need a single
+        representative value. The mean of the last INDOOR_REF_DAYS days is an
+        unbiased estimate of the same per-hour quantity the model trained on,
+        which is what keeps training and prediction on the same scale -- the
+        absolute value matters far less than that consistency, because a constant
+        offset is absorbed by the day model's fit.
+
+        Leaves the previous value (or None) in place if the read yields nothing,
+        so a momentary recorder gap cannot silently swing the whole forecast.
+        """
+        ent = self.cfg.get(CONF_INDOOR)
+        if not ent:
+            self._indoor_ref = None
+            return
+        try:
+            raw = await fetch_series(self.hass, ent, INDOOR_REF_DAYS, cumulative=False)
+        except Exception:  # noqa: BLE001 - never let this break a forecast
+            _LOGGER.debug("Indoor reference read failed for %s.", ent, exc_info=True)
+            return
+        if not raw:
+            _LOGGER.debug("No recent history for indoor sensor %s.", ent)
+            return
+        self._indoor_ref = sum(v for _, v in raw) / len(raw)
+
     def _current_target(self):
+        """Heating-degree reference for FUTURE hours.
+
+        Same preference order as the training history in _build_hourly_series
+        (indoor sensor -> thermostat target -> heating threshold), so the model
+        predicts against the reference it learned from.
+        """
+        if self.cfg.get(CONF_INDOOR):
+            # An indoor sensor outranks the thermostat, and keeps outranking it
+            # when it turns out to be unreadable: _build_hourly_series then
+            # trains on the heating threshold, so predicting with the thermostat
+            # target instead would put training and prediction on different
+            # references -- the one error that scales the whole forecast.
+            return self._indoor_ref if self._indoor_ref is not None else self.base
         ent = self.cfg.get(CONF_THERMOSTAT)
         if ent:
             st = self.hass.states.get(ent)
@@ -1119,6 +1196,11 @@ class ForecastCoordinator(DataUpdateCoordinator):
         if end <= start:
             raise HomeAssistantError("`end` must be after `start`.")
 
+        if target_temp is None and self.cfg.get(CONF_INDOOR) and self._indoor_ref is None:
+            # service called before the first hourly refresh (e.g. just after a
+            # restart): read the reference now rather than silently using another
+            # one than the model was trained on
+            await self._async_refresh_indoor_ref()
         target = target_temp if target_temp is not None else self._current_target()
         target = float(target)
         outdoor_temp = float(outdoor_temp)

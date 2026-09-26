@@ -65,7 +65,7 @@ class ProfileModel:
 
     name = "profile"
 
-    def __init__(self, base_temp: float = 17.0):
+    def __init__(self, base_temp: float = 21.0):
         self.base_temp = base_temp
         self.daily = _Ridge(alpha=1.0)
         self.hour_profiles: dict[tuple[bool, bool], np.ndarray] = {}

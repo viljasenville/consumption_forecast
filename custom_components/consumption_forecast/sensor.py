@@ -164,6 +164,8 @@ class WeekSensor(_EnergyEntity):
                 "training_end": info.get("training_end"),
                 "training_span_days": info.get("training_span_days"),
                 "training_hours": info.get("training_hours"),
+                # which input supplied the heating-degree reference
+                "hdd_reference": info.get("hdd_reference"),
             }
         )
         return attrs

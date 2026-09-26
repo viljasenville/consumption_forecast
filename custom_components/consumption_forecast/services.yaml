@@ -70,8 +70,9 @@ forecast_period:
     target_temp:
       name: Target temperature
       description: >-
-        Thermostat target in °C. Defaults to the current target (or the heating
-        threshold) when omitted.
+        Heating-degree reference in °C. Defaults to the same reference the
+        forecast uses when omitted: the recent indoor-sensor mean, else the
+        current thermostat target, else the heating threshold.
       required: false
       example: 21
       selector:

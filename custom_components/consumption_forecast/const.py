@@ -5,14 +5,14 @@ DOMAIN = "consumption_forecast"
 # --- Configurable input entities ---
 CONF_ENERGY = "energy_entity"          # cumulative kWh consumption meter (device_class energy)
 CONF_OUTDOOR = "outdoor_temp_entity"   # outdoor temperature (C)
-CONF_INDOOR = "indoor_temp_entity"     # indoor temperature (C, optional)
+CONF_INDOOR = "indoor_temp_entity"     # indoor temperature (C, optional); preferred heating-degree reference
 CONF_FORECAST = "weather_entity"       # weather entity (forecast source)
 CONF_THERMOSTAT = "thermostat_entity"  # climate entity, target from attr "temperature"
 CONF_PRODUCTION = "production_entity"   # cumulative kWh solar production (optional, history only)
 CONF_EXPORT = "export_entity"          # cumulative kWh grid export/sale (optional, history only)
 
 # --- Configurable parameters ---
-CONF_BASE_TEMP = "base_temp"           # heating threshold when no thermostat is set
+CONF_BASE_TEMP = "base_temp"           # heating threshold when no indoor sensor or thermostat is set
 CONF_HISTORY_DAYS = "history_days"     # training window (days); empty = all available
 CONF_TIMEZONE = "timezone"             # house timezone
 CONF_MAX_HOURLY_KWH = "max_hourly_kwh" # per-hour consumption cap (anomaly filter)
@@ -20,13 +20,18 @@ CONF_PEAK_HOURS = "peak_hours"         # how many high/low peak hours per day to
 CONF_MODEL = "model"                   # forecast model: "profile" or an add-on backend id
 
 # --- Defaults ---
-DEFAULT_BASE_TEMP = 17.0
+DEFAULT_BASE_TEMP = 21.0
 DEFAULT_PEAK_HOURS = 4                  # flag the 4 highest and 4 lowest hours/day
 # History window default is None -> fetch ALL data the recorder still has
 # (the recorder's own retention bounds it). A number narrows it to that many days.
 DEFAULT_HISTORY_DAYS = None
 DEFAULT_TIMEZONE = "Europe/Helsinki"
 DEFAULT_MAX_HOURLY_KWH = 100.0
+# Future indoor temperature is unknown, so the forecast uses the mean of the last
+# INDOOR_REF_DAYS days of the indoor sensor as its heating-degree reference. An
+# unbiased estimate of the same quantity the model trained on, and long enough to
+# average out day/night swings without lagging a real setpoint change.
+INDOOR_REF_DAYS = 7
 # The built-in profile model is the default and the fallback: it needs no
 # add-on, runs anywhere, and is always available.
 MODEL_PROFILE = "profile"

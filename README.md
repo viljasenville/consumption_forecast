@@ -128,10 +128,10 @@ ships. See "Add-on models" below to enable the more accurate hour-level models.
 | Grid export | no | Cumulative kWh sold to the grid. Used only to correct history |
 | Outdoor temperature | yes | °C |
 | Weather | yes | `weather` entity the forecast is fetched from |
-| Indoor temperature | no | °C |
-| Thermostat | no | `climate` entity; its **current** target is applied to the whole training history (see note below) |
+| Indoor temperature | no | °C. The preferred heating-degree reference — takes precedence over the thermostat (see note below) |
+| Thermostat | no | `climate` entity. Used as the reference only when no indoor temperature sensor is set; its **current** target is then applied to the whole training history (see note below) |
 | Forecast model | no | Which model forecasts. Default is the built-in profile model; other entries appear only when the model provider add-on is installed |
-| Heating threshold | no | Used if no thermostat. Default 17 °C. Set this to the temperature your home actually heats to |
+| Heating threshold | no | Used if neither an indoor sensor nor a thermostat is set. Default 21 °C. Set this to the temperature your home actually heats to |
 | Training window | no | Days of history to train on. Leave empty to use all available data (bounded by the recorder's own retention); set a number to narrow it |
 | Timezone | no | IANA name. Default `Europe/Helsinki` |
 | Max hourly kWh | no | Anomaly filter (meter resets). Default 100 |
@@ -155,17 +155,44 @@ habits changed a lot at some point (a new heat pump, a renovation), set the
 window to a number of days that covers only the period that still represents
 your home, rather than training on outdated years.
 
-**Heating threshold / thermostat target.** Consumption is driven by heating
-degree hours — how far the outdoor temperature sits below your indoor target.
-For the forecast to be right, the model must learn and predict with the **same**
-target. A thermostat's target is an attribute, so its history only reaches the
-recorder's raw window (~10 days), not the long-term statistics; to keep the
-threshold consistent across the whole (possibly year-long) training history, the
-integration applies the thermostat's **current** target to all of it. This
-assumes a stable setpoint — if you change it seasonally, retrain (the Train
-button) after the change. If you have no thermostat, set the **heating
-threshold** to the temperature your home actually heats to (e.g. 21 °C); a wrong
-threshold here systematically scales the whole forecast up or down.
+**The heating-degree reference.** Consumption is driven by heating degree hours
+— how far the outdoor temperature sits below the temperature your home is kept
+at. What matters most is not the absolute value but that the model **learns and
+predicts with the same reference**: because the daily model fits
+`kWh = a × degree hours + weekday + c`, a constant offset (a house that sits at
+20.5 °C with the dial on 21 °C) is absorbed by the fit, while an *inconsistent*
+reference scales the whole forecast up or down.
+
+Three sources can supply it, in order of preference:
+
+1. **Indoor temperature sensor** (recommended). A temperature sensor gets
+   long-term statistics, so its real hour-by-hour history covers the entire
+   training window. This is the most accurate option, and it needs no
+   maintenance: if you change your setpoint for the season, the change is
+   already recorded in the history. Because future indoor temperature is
+   unknown, forecast hours use the mean of the **last 7 days** — an unbiased
+   estimate of the same quantity the model trained on. If the sensor is newer
+   than your energy meter, history predating it is back-filled with the sensor's
+   earliest reading, so the whole training window stays on one reference scale.
+2. **Thermostat.** A thermostat's target is an attribute, so its history only
+   reaches the recorder's raw window (~10 days), not the long-term statistics.
+   To keep the reference consistent across a possibly year-long training
+   history, the integration applies the thermostat's **current** target to all
+   of it. This assumes a stable setpoint — if you change it seasonally, retrain
+   (the Train button) after the change.
+3. **Heating threshold.** With neither of the above, set this to the temperature
+   your home actually heats to (e.g. 21 °C).
+
+The week sensor's `hdd_reference` attribute reports which of the three is in
+use — the first thing to check if the forecast is systematically too high or too
+low.
+
+One caveat on the indoor sensor: measured indoor temperature is partly an
+*outcome* of heating, not only a driver. If the house cannot keep up during a
+cold snap, indoor temperature sags at exactly the hours consumption peaks, which
+flattens the fitted slope slightly. The effect is small — one or two degrees of
+drift against degree hours of 10–40 — which is why indoor temperature is used as
+the reference and not as an additional independent input.
 
 ### Solar panels
 
