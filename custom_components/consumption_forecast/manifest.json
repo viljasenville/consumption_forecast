@@ -1,13 +1,13 @@
 {
   "domain": "consumption_forecast",
   "name": "Consumption Forecast",
-  "version": "0.1.0",
-  "documentation": "https://github.com/example/consumption_forecast",
-  "issue_tracker": "https://github.com/example/consumption_forecast/issues",
-  "iot_class": "calculated",
-  "integration_type": "service",
+  "codeowners": ["@viljasenville"],
   "config_flow": true,
   "dependencies": ["recorder"],
+  "documentation": "https://github.com/example/consumption_forecast",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/example/consumption_forecast/issues",  
   "requirements": [],
-  "codeowners": []
+  "version": "1.0.0"
 }
