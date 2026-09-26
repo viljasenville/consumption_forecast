@@ -1,0 +1,43 @@
+# Example Lovelace cards.
+# The hourly forecast is drawn directly from the sensor.consumption_forecast_hourly
+# attribute. Requires the custom:apexcharts-card card (installable via HACS).
+
+# --- Hourly consumption forecast (line) ---
+type: custom:apexcharts-card
+header:
+  title: Consumption forecast (hourly)
+  show: true
+graph_span: 7d
+span:
+  start: hour
+series:
+  - entity: sensor.consumption_forecast_hourly
+    name: Forecast
+    unit: kWh
+    data_generator: |
+      return (entity.attributes.forecast || []).map(p => [
+        new Date(p.datetime).getTime(), p.kwh
+      ]);
+
+# --- Daily consumption forecast (columns) ---
+# Separate card; copy into its own card.
+# type: custom:apexcharts-card
+# header:
+#   title: Consumption forecast (daily)
+# chart_type: column
+# series:
+#   - entity: sensor.consumption_forecast_week
+#     name: Daily forecast
+#     unit: kWh
+#     data_generator: |
+#       return (entity.attributes.days || []).map(d => [
+#         new Date(d.date).getTime(), d.kwh
+#       ]);
+
+# --- Summary (entities card) ---
+# type: entities
+# title: Consumption Forecast
+# entities:
+#   - entity: sensor.consumption_forecast_today
+#   - entity: sensor.consumption_forecast_tomorrow
+#   - entity: sensor.consumption_forecast_week

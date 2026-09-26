@@ -1,0 +1,148 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Consumption Forecast",
+        "description": "Valitse ennusteen syöte-entiteetit, käytettävä malli ja mallin opetusparametrit. Sisäänrakennetun mallin lisäksi valittavat mallit tulevat Consumption Forecast Model Provider -lisäosasta; ilman sitä käytetään sisäänrakennettua profiilimallia.",
+        "data": {
+          "energy_entity": "Energiamittari (kumulatiivinen kWh)",
+          "outdoor_temp_entity": "Ulkolämpötila",
+          "indoor_temp_entity": "Sisälämpötila (valinnainen)",
+          "weather_entity": "Sää (ennuste)",
+          "thermostat_entity": "Termostaatti (tavoitelämpötila, valinnainen)",
+          "model": "Ennustemalli",
+          "base_temp": "Lämmitysraja (käytetään jos ei termostaattia)",
+          "history_days": "Koulutusikkuna vuorokausina (tyhjä = käytä kaikkea saatavilla olevaa dataa)",
+          "timezone": "Aikavyöhyke",
+          "max_hourly_kwh": "Tuntikohtainen kulutuksen yläraja (kWh, anomaliasuodatus)",
+          "production_entity": "Aurinkotuotanto (valinnainen, kumulatiivinen kWh)",
+          "export_entity": "Verkkoon myyty energia (valinnainen, kumulatiivinen kWh)",
+          "peak_hours": "Kuinka monta korkeinta/matalinta tuntia päivässä merkitään (0 = pois)"
+        }
+      }
+    },
+    "error": {
+      "invalid_timezone": "Tuntematon aikavyöhyke. Käytä IANA-nimeä, esim. Europe/Helsinki."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Consumption Forecast -asetukset",
+        "data": {
+          "energy_entity": "Energiamittari (kumulatiivinen kWh)",
+          "outdoor_temp_entity": "Ulkolämpötila",
+          "indoor_temp_entity": "Sisälämpötila (valinnainen)",
+          "weather_entity": "Sää (ennuste)",
+          "thermostat_entity": "Termostaatti (tavoitelämpötila, valinnainen)",
+          "model": "Ennustemalli",
+          "base_temp": "Lämmitysraja (käytetään jos ei termostaattia)",
+          "history_days": "Koulutusikkuna vuorokausina (tyhjä = käytä kaikkea saatavilla olevaa dataa)",
+          "timezone": "Aikavyöhyke",
+          "max_hourly_kwh": "Tuntikohtainen kulutuksen yläraja (kWh, anomaliasuodatus)",
+          "production_entity": "Aurinkotuotanto (valinnainen, kumulatiivinen kWh)",
+          "export_entity": "Verkkoon myyty energia (valinnainen, kumulatiivinen kWh)",
+          "peak_hours": "Kuinka monta korkeinta/matalinta tuntia päivässä merkitään (0 = pois)"
+        }
+      }
+    },
+    "error": {
+      "invalid_timezone": "Tuntematon aikavyöhyke. Käytä IANA-nimeä, esim. Europe/Helsinki."
+    }
+  },
+  "services": {
+    "train_model": {
+      "name": "Kouluta malli",
+      "description": "Pakota mallin uudelleenkoulutus historiadatasta heti.",
+      "fields": {
+        "entry_id": {
+          "name": "Konfiguraatio",
+          "description": "Mikä konfiguraatio koulutetaan. Tyhjä = kaikki."
+        }
+      }
+    },
+    "refresh_forecast": {
+      "name": "Päivitä ennuste",
+      "description": "Laske ennuste heti uudelleen nykyisellä mallilla.",
+      "fields": {
+        "entry_id": {
+          "name": "Konfiguraatio",
+          "description": "Mikä konfiguraatio päivitetään. Tyhjä = kaikki."
+        }
+      }
+    },
+    "forecast_period": {
+      "name": "Ennuste ajanjaksolle",
+      "description": "Laskee kulutusennusteen mielivaltaiselle ajanjaksolle annetusta alusta, lopusta ja yhdestä ulkolämpötilasta. Palauttaa tunnit, päiväsummat ja kokonaissumman vastausdatana.",
+      "fields": {
+        "start": {
+          "name": "Alku",
+          "description": "Ajanjakson alku (mukaan lukien; minuutit ohitetaan)."
+        },
+        "end": {
+          "name": "Loppu",
+          "description": "Ajanjakson loppu (pois lukien; minuutit ohitetaan)."
+        },
+        "outdoor_temp": {
+          "name": "Ulkolämpötila",
+          "description": "Ulkolämpötila °C, sovelletaan jokaiseen jakson tuntiin."
+        },
+        "target_temp": {
+          "name": "Tavoitelämpötila",
+          "description": "Termostaatin tavoite °C. Oletuksena nykyinen tavoite."
+        },
+        "entry_id": {
+          "name": "Kokoonpano",
+          "description": "Mitä kokoonpanoa käytetään. Pakollinen vain jos useita."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": {
+        "name": "Tänään"
+      },
+      "tomorrow": {
+        "name": "Huomenna"
+      },
+      "week": {
+        "name": "Viikko"
+      },
+      "hourly": {
+        "name": "Tunneittain"
+      },
+      "current_hour": {
+        "name": "Kuluva tunti"
+      },
+      "accuracy_today": {
+        "name": "Tarkkuus tänään"
+      },
+      "accuracy_yesterday": {
+        "name": "Tarkkuus eilen"
+      },
+      "accuracy_week": {
+        "name": "Tarkkuus viikko"
+      },
+      "accuracy_month": {
+        "name": "Tarkkuus kuukausi"
+      }
+    },
+    "binary_sensor": {
+      "peak_high": {
+        "name": "Korkean kulutuksen tunti"
+      },
+      "peak_low": {
+        "name": "Matalan kulutuksen tunti"
+      }
+    },
+    "button": {
+      "train_model": {
+        "name": "Kouluta malli"
+      },
+      "refresh_forecast": {
+        "name": "Päivitä ennuste"
+      }
+    }
+  }
+}

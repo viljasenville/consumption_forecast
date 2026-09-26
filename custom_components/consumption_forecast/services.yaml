@@ -1,0 +1,92 @@
+train_model:
+  name: Train model
+  description: >-
+    Force an immediate retrain from the recorded history. Trains both the
+    profile and the LightGBM model and keeps the one with the lower validation
+    error. Normally runs automatically once a day.
+  fields:
+    entry_id:
+      name: Config entry
+      description: >-
+        Which Consumption Forecast configuration to retrain. Leave empty to
+        apply to all configured entries.
+      required: false
+      selector:
+        config_entry:
+          integration: consumption_forecast
+
+refresh_forecast:
+  name: Refresh forecast
+  description: >-
+    Recompute the forecast immediately using the current model, without
+    retraining. Normally refreshes automatically every hour.
+  fields:
+    entry_id:
+      name: Config entry
+      description: >-
+        Which Consumption Forecast configuration to refresh. Leave empty to
+        apply to all configured entries.
+      required: false
+      selector:
+        config_entry:
+          integration: consumption_forecast
+
+forecast_period:
+  name: Forecast period
+  description: >-
+    Forecast consumption over an arbitrary period from a start, an end and a
+    single outdoor temperature applied to the whole period. Works for past,
+    present or future ranges. Returns hourly values, daily sums and the period
+    total as response data.
+  fields:
+    start:
+      name: Start
+      description: Start of the period (inclusive; minutes are ignored).
+      required: true
+      example: "2026-01-15 00:00:00"
+      selector:
+        datetime:
+    end:
+      name: End
+      description: End of the period (exclusive; minutes are ignored).
+      required: true
+      example: "2026-01-18 00:00:00"
+      selector:
+        datetime:
+    outdoor_temp:
+      name: Outdoor temperature
+      description: >-
+        Outdoor temperature in °C, applied to every hour in the period. For long
+        periods this is an approximation.
+      required: true
+      example: -5
+      selector:
+        number:
+          min: -50
+          max: 50
+          step: 0.1
+          unit_of_measurement: "°C"
+          mode: box
+    target_temp:
+      name: Target temperature
+      description: >-
+        Thermostat target in °C. Defaults to the current target (or the heating
+        threshold) when omitted.
+      required: false
+      example: 21
+      selector:
+        number:
+          min: 0
+          max: 40
+          step: 0.1
+          unit_of_measurement: "°C"
+          mode: box
+    entry_id:
+      name: Config entry
+      description: >-
+        Which Consumption Forecast configuration to use. Required only if you
+        have more than one configured.
+      required: false
+      selector:
+        config_entry:
+          integration: consumption_forecast

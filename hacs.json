@@ -1,0 +1,9 @@
+{
+  "name": "Consumption Forecast",
+  "content_in_root": false,
+  "filename": "consumption_forecast.zip",
+  "render_readme": true,
+  "homeassistant": "2026.9.0",
+  "zip_release": true,
+  "hide_default_branch": false
+}

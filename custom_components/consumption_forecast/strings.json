@@ -1,0 +1,148 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Consumption Forecast",
+        "description": "Select the input entities, the forecast model and the parameters used to train it. Models other than the built-in one are provided by the Consumption Forecast Model Provider add-on; without it the built-in profile model is used.",
+        "data": {
+          "energy_entity": "Energy meter (cumulative kWh)",
+          "outdoor_temp_entity": "Outdoor temperature",
+          "indoor_temp_entity": "Indoor temperature (optional)",
+          "weather_entity": "Weather (forecast)",
+          "thermostat_entity": "Thermostat (target temperature, optional)",
+          "model": "Forecast model",
+          "base_temp": "Heating threshold (used if no thermostat)",
+          "history_days": "Training window in days (leave empty to use all available history)",
+          "timezone": "Timezone",
+          "max_hourly_kwh": "Max hourly consumption (kWh, anomaly filter)",
+          "production_entity": "Solar production (optional, cumulative kWh)",
+          "export_entity": "Grid export / sold energy (optional, cumulative kWh)",
+          "peak_hours": "How many highest/lowest hours per day to flag (0 = off)"
+        }
+      }
+    },
+    "error": {
+      "invalid_timezone": "Unknown timezone. Use an IANA name such as Europe/Helsinki."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Consumption Forecast settings",
+        "data": {
+          "energy_entity": "Energy meter (cumulative kWh)",
+          "outdoor_temp_entity": "Outdoor temperature",
+          "indoor_temp_entity": "Indoor temperature (optional)",
+          "weather_entity": "Weather (forecast)",
+          "thermostat_entity": "Thermostat (target temperature, optional)",
+          "model": "Forecast model",
+          "base_temp": "Heating threshold (used if no thermostat)",
+          "history_days": "Training window in days (leave empty to use all available history)",
+          "timezone": "Timezone",
+          "max_hourly_kwh": "Max hourly consumption (kWh, anomaly filter)",
+          "production_entity": "Solar production (optional, cumulative kWh)",
+          "export_entity": "Grid export / sold energy (optional, cumulative kWh)",
+          "peak_hours": "How many highest/lowest hours per day to flag (0 = off)"
+        }
+      }
+    },
+    "error": {
+      "invalid_timezone": "Unknown timezone. Use an IANA name such as Europe/Helsinki."
+    }
+  },
+  "services": {
+    "train_model": {
+      "name": "Train model",
+      "description": "Force an immediate retrain from the recorded history.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "Which configuration to retrain. Leave empty for all."
+        }
+      }
+    },
+    "refresh_forecast": {
+      "name": "Refresh forecast",
+      "description": "Recompute the forecast immediately using the current model.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry",
+          "description": "Which configuration to refresh. Leave empty for all."
+        }
+      }
+    },
+    "forecast_period": {
+      "name": "Forecast period",
+      "description": "Forecast consumption over an arbitrary period from a start, end and a single outdoor temperature. Returns hourly values, daily sums and the period total as response data.",
+      "fields": {
+        "start": {
+          "name": "Start",
+          "description": "Start of the period (inclusive; minutes ignored)."
+        },
+        "end": {
+          "name": "End",
+          "description": "End of the period (exclusive; minutes ignored)."
+        },
+        "outdoor_temp": {
+          "name": "Outdoor temperature",
+          "description": "Outdoor temperature in °C, applied to every hour in the period."
+        },
+        "target_temp": {
+          "name": "Target temperature",
+          "description": "Thermostat target in °C. Defaults to current target if omitted."
+        },
+        "entry_id": {
+          "name": "Config entry",
+          "description": "Which configuration to use. Required only with more than one entry."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "today": {
+        "name": "Today"
+      },
+      "tomorrow": {
+        "name": "Tomorrow"
+      },
+      "week": {
+        "name": "Week"
+      },
+      "hourly": {
+        "name": "Hourly"
+      },
+      "current_hour": {
+        "name": "Current hour"
+      },
+      "accuracy_today": {
+        "name": "Accuracy today"
+      },
+      "accuracy_yesterday": {
+        "name": "Accuracy yesterday"
+      },
+      "accuracy_week": {
+        "name": "Accuracy week"
+      },
+      "accuracy_month": {
+        "name": "Accuracy month"
+      }
+    },
+    "binary_sensor": {
+      "peak_high": {
+        "name": "High consumption hour"
+      },
+      "peak_low": {
+        "name": "Low consumption hour"
+      }
+    },
+    "button": {
+      "train_model": {
+        "name": "Train model"
+      },
+      "refresh_forecast": {
+        "name": "Refresh forecast"
+      }
+    }
+  }
+}

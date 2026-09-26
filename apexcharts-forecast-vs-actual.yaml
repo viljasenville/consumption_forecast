@@ -1,0 +1,98 @@
+# =============================================================================
+#  Ennuste vs. toteutunut kulutus — ApexCharts-vertailukortti
+# =============================================================================
+#
+#  Tämä kortti piirtää samaan kuvaajaan:
+#    - ENNUSTE  : sensor.consumption_forecast_current_hour  (recorder-historia)
+#    - TOTEUMA  : tuntikohtainen Utility Meter -apuri (recorder-historia)
+#
+#  Molemmat luetaan recorderin HISTORIASTA, joten myös MENNEIDEN tuntien
+#  ennustearvot näkyvät — näet miten kunkin tunnin ennuste osui toteumaan.
+#
+#  Vaatii custom:apexcharts-card -kortin (asenna HACSista: "apexcharts-card").
+#
+#  ---------------------------------------------------------------------------
+#  MIKSI current_hour -sensori eikä ..._hourly -attribuutti?
+#  ---------------------------------------------------------------------------
+#  Aiemmin ennuste luettiin sensor.consumption_forecast_hourly -sensorin
+#  "forecast"-ATTRIBUUTISTA data_generatorilla. Attribuutti sisältää vain
+#  tulevat tunnit, eikä recorder tallenna attribuuttihistoriaa -> menneet
+#  ennustearvot katosivat. Uusi sensor.*_current_hour -sensori julkaisee kuluvan
+#  tunnin ennusteen omana TILANAAN, jonka recorder tallentaa. Näin vertailu
+#  "miten eilinen ennuste osui" toimii. (Vaatii integraation päivitetyn version.)
+#
+#  ---------------------------------------------------------------------------
+#  VAIHE 1 — Luo tuntikohtainen toteuma-apuri (jos et jo tehnyt)
+#  ---------------------------------------------------------------------------
+#  Kokonaiskulutuksen toteumaan: käytä erillistä todellinen-kulutus-apuria
+#  (template-sensori osto+tuotanto-myynti -> Utility Meter). Ohjeet siihen ovat
+#  tiedostossa todellinen-kulutus-apuri.yaml.
+#
+#  ---------------------------------------------------------------------------
+#  VAIHE 2 — Lisää tämä kortti Lovelaceen
+#  ---------------------------------------------------------------------------
+#  Vaihda 'sensor.real_total_consumption_hourly' oman toteuma-apurisi nimeen.
+
+type: custom:apexcharts-card
+header:
+  title: Ennuste vs. toteutunut kulutus
+  show: true
+  show_states: true
+  colorize_states: true
+
+# Näytä mennyt 24 h (toteuma + tallennettu ennuste) ja tuleva ennuste.
+graph_span: 48h
+span:
+  start: hour
+  offset: "-24h"
+
+# Pystyviiva nykyhetkessä erottaa toteuman (vasen) ja tulevan ennusteen (oikea).
+now:
+  show: true
+  label: Nyt
+
+yaxis:
+  - min: 0
+    decimals: 2
+    apex_config:
+      title:
+        text: kWh / h
+
+series:
+  # --- ENNUSTE: kuluvan tunnin ennuste, recorder-historiasta ---
+  # Menneet tunnit tulevat sensorin tilahistoriasta; tulevat tunnit lisätään
+  # data_generatorilla ..._hourly -attribuutista, jotta myös tuleva ennuste
+  # näkyy nykyhetken oikealla puolella.
+  - entity: sensor.consumption_forecast_current_hour
+    name: Ennuste (toteutunut hetki)
+    type: line
+    stroke_width: 2
+    color: "#2f80ed"
+    unit: kWh
+    group_by:
+      func: last
+      duration: 1h
+
+  # --- ENNUSTE (tuleva): attribuutista, näyttää nykyhetkeä myöhemmät tunnit ---
+  - entity: sensor.consumption_forecast_hourly
+    name: Ennuste (tuleva)
+    type: line
+    stroke_width: 2
+    color: "#2f80ed"
+    opacity: 0.5
+    unit: kWh
+    data_generator: |
+      return (entity.attributes.forecast || []).map(p => [
+        new Date(p.datetime).getTime(), p.kwh
+      ]);
+
+  # --- TOTEUMA: tuntikohtainen todellinen kulutus, recorder-historiasta ---
+  - entity: sensor.real_total_consumption_hourly   # <-- VAIHDA omaan apuriisi
+    name: Toteutunut
+    type: column
+    color: "#9b51e0"
+    opacity: 0.55
+    unit: kWh
+    group_by:
+      func: max
+      duration: 1h
